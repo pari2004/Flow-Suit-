@@ -1,0 +1,97 @@
+# ----------------------------------------------------------------------------
+# FlowSuite API — base configuration. Profile-specific overrides below.
+# Secrets come from environment variables (see root .env.example).
+# ----------------------------------------------------------------------------
+spring:
+  application:
+    name: flowsuite-api
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/flowsuite}
+    username: ${SPRING_DATASOURCE_USERNAME:flowsuite}
+    password: ${SPRING_DATASOURCE_PASSWORD:flowsuite_dev_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: flowsuite-pool
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. Hibernate only validates entity<->table drift.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# --- Application-specific configuration (bound via @ConfigurationProperties) ---
+flowsuite:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-long-random-base64-secret-at-least-32-bytes}
+    access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:15}
+    refresh-token-ttl-days: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}
+    password-reset-ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:30}
+    issuer: flowsuite
+  security:
+    # Login rate limiting (FR-06) — enforced via Redis in Phase 3
+    login-max-attempts: 5
+    login-window-minutes: 15
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:sk_test_xxx}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_xxx}
+    success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/billing/success}
+    cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/billing/cancel}
+  mail:
+    # SMTP transport binds from the standard spring.mail.* env vars (e.g. SPRING_MAIL_HOST).
+    # When no SMTP host is configured, email is disabled and action links are logged instead.
+    enabled: ${MAIL_ENABLED:true}
+    from-address: ${MAIL_FROM_ADDRESS:no-reply@flowsuite.local}
+    from-name: ${MAIL_FROM_NAME:FlowSuite}
+    # Public base URL of the web app, used to build reset/invite links.
+    app-base-url: ${APP_BASE_URL:http://localhost:5173}
+
+logging:
+  level:
+    com.flowsuite: INFO
+
+---
+# Profile used inside docker-compose (service hostnames)
+spring:
+  config:
+    activate:
+      on-profile: docker
